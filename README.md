@@ -4,28 +4,42 @@ A small website for the grand jeu. It runs on Google Apps Script and uses a Goog
 
 ## This fork
 
-This copy uses the existing Apps Script URL in `index.html`, and therefore the same
-Sheet, accounts and challenge statuses as the original site. The frontend changes
-do not require an Apps Script redeployment.
+This copy uses the Apps Script URL in `index.html` for the shared Sheet, accounts
+and challenge statuses. Image riddles require the matching updated backend and
+the private image file described below; the site refuses an older backend.
 
 - Written-out `https://`, `http://` and `www.` links in challenge text are clickable
   for both patrols and admins. They open in a new tab. Keep writing URLs directly
   in the Défis cells; links attached only to words are not returned by the current backend.
 - The site includes a phone viewport, touch controls, wrapping admin controls and
   scrollable patrol tabs.
-- To replace a location name with an image, put the image in `assets/locations/`
-  and add its exact name from the Lieux tab to `location-images.js`, for example:
+- Locations appear as image riddles. Only admin responses include their names.
+  Patrol responses contain image bytes only after the threshold is met. Pictures
+  have generic alternative text and no descriptive filenames or image URLs.
 
-  ```js
-  window.LOCATION_IMAGES = {
-    'Nom exact dans la feuille': 'assets/locations/photo-01.jpg',
-  };
-  ```
+### Private image setup
 
-  Public HTTPS image URLs work too. An image appears in place of the name in the
-  location card, previous locations, reveal and admin preview. Tap it to enlarge.
-  Unmapped locations keep their text until their images are supplied. Patrols
-  still receive locations only after the existing unlock threshold is reached.
+1. Place source PNGs in the project folder, named exactly like the Lieux cells.
+2. Install Pillow locally if needed, then run `python tools/build-private-images.py`.
+3. In the Sheet's Apps Script project, create a script file named `LocationImages`
+   and paste the generated `.private/LocationImages.gs`. This file contains the
+   answers and must stay private. Neither source PNGs nor `.private/` are committed.
+4. Update `Code.gs` and `Index` from this repository, save, and deploy a new version
+   of the existing deployment. Check `/exec?ping=1` returns `riddleVersion: 1`.
+
+Alternatively, paste `.private/DeployCode.gs` into Apps Script's `Code.gs`; this
+combines the backend and private images into one file, so no separate
+`LocationImages` script is needed. Never copy the combined file into this repository.
+
+Images are re-encoded without original metadata. The public repository contains
+no answer mapping, image bundle or source images. The private helper ends in `_`,
+so Apps Script does not expose it through `google.script.run`; the JSON API also
+allows only login, getData and setStatus. Missing images show a generic message,
+never a location name. The same Sheet remains the source of unlock thresholds.
+
+Every accessible deployment of the old backend must be updated or retired: an
+old deployment can still return location names even if the new frontend hides them.
+Keep the Sheet itself restricted to organizers, since its Lieux tab contains answers.
 
 For this fork, configure GitHub Pages to publish `main` from `/ (root)`. Its site
 address is `https://chrs-005.github.io/grandjeufanar/`.

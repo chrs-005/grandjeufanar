@@ -222,7 +222,6 @@
 <body>
 <div id="app"><div class="loading">Chargement…</div></div>
 <div id="overlay"></div>
-<script src="location-images.js"></script>
 <script>
   const THEMES = {
     requin: { emoji: '🦈', color: '#1f6aa0' },
@@ -244,6 +243,12 @@
     set(key, value) { try { localStorage.setItem('gjf:' + key, JSON.stringify(value)); } catch (e) {} },
     remove(key) { try { localStorage.removeItem('gjf:' + key); } catch (e) {} },
   };
+
+  // Remove location names saved by older versions of this website.
+  if (store.get('riddleVersion') !== 1) {
+    Object.keys(THEMES).forEach(key => store.remove('seen:' + key));
+    store.set('riddleVersion', 1);
+  }
 
   const state = {
     token: store.get('token'),
@@ -315,23 +320,17 @@
   }
 
   function locationImageUrl(location) {
-    const images = window.LOCATION_IMAGES || {};
-    const name = String(location.name).trim();
-    const value = Object.prototype.hasOwnProperty.call(images, name) ? images[name] : '';
-    if (typeof value !== 'string' || !value.trim()) return '';
-    const source = value.trim();
-    if (/^https:\/\//i.test(source)) {
-      try { return new URL(source).href; } catch (e) { return ''; }
-    }
-    // Repository images live under assets/, relative to this GitHub Pages site.
-    if (/^(?:\.\/)?assets\//.test(source) && !source.split('/').includes('..') && !/[\\?#]/.test(source)) return source;
-    return '';
+    // The server sends only authorized image bytes, with no filename or public URL.
+    const source = location.imageData;
+    return typeof source === 'string' && /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/]+=*$/.test(source) ? source : '';
   }
 
   function locationContent(location) {
     const src = locationImageUrl(location);
-    if (!src) return `<div class="name display">${esc(location.name)}</div>`;
-    return `<button class="location-image" data-action="view-image" data-src="${esc(src)}" aria-label="Agrandir l’image du lieu">
+    const label = state.data && state.data.role === 'admin'
+      ? `<div class="name display">${esc(location.name || '')}</div>` : '';
+    if (!src) return `${label}<p class="image-error">L’image de ce lieu n’est pas encore disponible. Contactez la maîtrise.</p>`;
+    return `${label}<button class="location-image" data-action="view-image" data-src="${esc(src)}" aria-label="Agrandir l’image du lieu">
       <img src="${esc(src)}" alt="Indice du lieu à rejoindre" loading="lazy" decoding="async">
       <span>Agrandir l’image ↗</span></button>`;
   }
@@ -536,9 +535,9 @@
   function revealNewLocation(s) {
     const seenKey = 'seen:' + s.p.key;
     const seen = store.get(seenKey) || [];
-    const fresh = s.unlocked.filter(l => !seen.includes(l.threshold + '|' + l.name));
+    const fresh = s.unlocked.filter(l => locationImageUrl(l) && !seen.includes(l.threshold));
     if (!fresh.length || overlay.innerHTML) return;
-    store.set(seenKey, seen.concat(fresh.map(l => l.threshold + '|' + l.name)));
+    store.set(seenKey, seen.concat(fresh.map(l => l.threshold)));
     const latest = fresh[fresh.length - 1];
     openOverlay(`
       <div class="reveal" role="dialog" aria-modal="true" aria-labelledby="reveal-name">
@@ -565,6 +564,13 @@
   // ---------- Data ----------
 
   function setData(data) {
+    if (data.riddleVersion !== 1) {
+      throw new Error('Le serveur doit être mis à jour pour afficher les images sans révéler les réponses. Contactez la maîtrise.');
+    }
+    if (data.role !== 'admin' && (!data.patrol || !Array.isArray(data.patrol.locations) || data.patrol.locations.some(l =>
+      Object.keys(l).some(key => !['threshold', 'imageData'].includes(key))))) {
+      throw new Error('Réponse du serveur incompatible avec le mode énigme. Contactez la maîtrise.');
+    }
     state.data = data;
     state.updatedAt = new Date();
     state.offline = false;

@@ -23,7 +23,7 @@ const SESSION_EXPIRED = 'Session expirée, reconnectez-vous.';
 function doGet(e) {
   // Open <web app URL>?ping=1 to check that this deployment runs the latest code and is public.
   if (e && e.parameter && e.parameter.ping) {
-    return ContentService.createTextOutput(JSON.stringify({ ok: true, message: 'Le serveur fonctionne.' }))
+    return ContentService.createTextOutput(JSON.stringify({ ok: true, riddleVersion: 1, message: 'Le serveur fonctionne.' }))
       .setMimeType(ContentService.MimeType.JSON);
   }
   return HtmlService.createHtmlOutputFromFile('Index')
@@ -72,12 +72,13 @@ function getData(token) {
   if (account.isAdmin) {
     return {
       role: 'admin',
+      riddleVersion: 1,
       user: account.username,
       sheetUrl: SpreadsheetApp.getActiveSpreadsheet().getUrl(),
       patrols: PATROLS.map((_, k) => patrolView_(game, k, true)),
     };
   }
-  return { role: 'patrol', patrol: patrolView_(game, account.patrolIndex, false) };
+  return { role: 'patrol', riddleVersion: 1, patrol: patrolView_(game, account.patrolIndex, false) };
 }
 
 function setStatus(token, patrolKey, row, challengeName, status) {
@@ -139,7 +140,13 @@ function patrolView_(game, k, isAdmin) {
     key: normalize_(PATROLS[k]),
     name: game.names[k],
     challenges: challenges,
-    locations: isAdmin ? game.locations[k] : game.locations[k].filter(l => l.threshold <= accepted),
+    // Select permitted locations BEFORE loading any images. Never send answers to patrols.
+    locations: game.locations[k].filter(l => isAdmin || l.threshold <= accepted).map(l => {
+      const imageData = typeof privateLocationImage_ === 'function' ? privateLocationImage_(l.name) : '';
+      const location = { threshold: l.threshold, imageData: imageData };
+      if (isAdmin) location.name = l.name;
+      return location;
+    }),
     nextThreshold: next ? next.threshold : null,
   };
 }
