@@ -2,6 +2,34 @@
 
 A small website for the grand jeu. It runs on Google Apps Script and uses a Google Sheet as its database.
 
+## This fork
+
+This copy uses the existing Apps Script URL in `index.html`, and therefore the same
+Sheet, accounts and challenge statuses as the original site. The frontend changes
+do not require an Apps Script redeployment.
+
+- Written-out `https://`, `http://` and `www.` links in challenge text are clickable
+  for both patrols and admins. They open in a new tab. Keep writing URLs directly
+  in the Défis cells; links attached only to words are not returned by the current backend.
+- The site includes a phone viewport, touch controls, wrapping admin controls and
+  scrollable patrol tabs.
+- To replace a location name with an image, put the image in `assets/locations/`
+  and add its exact name from the Lieux tab to `location-images.js`, for example:
+
+  ```js
+  window.LOCATION_IMAGES = {
+    'Nom exact dans la feuille': 'assets/locations/photo-01.jpg',
+  };
+  ```
+
+  Public HTTPS image URLs work too. An image appears in place of the name in the
+  location card, previous locations, reveal and admin preview. Tap it to enlarge.
+  Unmapped locations keep their text until their images are supplied. Patrols
+  still receive locations only after the existing unlock threshold is reached.
+
+For this fork, configure GitHub Pages to publish `main` from `/ (root)`. Its site
+address is `https://chrs-005.github.io/grandjeufanar/`.
+
 - **Admin** (one account) sees a page for each patrol (Requin, Faucon, Bison, Leops, Panda) and marks each challenge **À faire**, **Validé** or **Refusé**.
 - **Each patrol** logs in and sees only its own page, read-only: its remaining, rejected and accepted challenges.
 - Each time a patrol reaches the number of accepted challenges set in the sheet (4, 8, 12… by default), the next location appears on its screen. Patrol screens refresh on their own every 15 seconds.

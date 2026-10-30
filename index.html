@@ -2,6 +2,9 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2c5a3c">
+<title>Grand Jeu Fanar</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -32,11 +35,15 @@
   }
   h1, h2, .display { font-family: "Baloo 2", Nunito, system-ui, sans-serif; line-height: 1.1; }
   button { font: inherit; color: inherit; cursor: pointer; }
-  .wrap { max-width: 720px; margin: 0 auto; padding: 16px 16px 40px; }
+  button, a { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+  button, .ghost { min-height: 44px; }
+  a:focus-visible, button:focus-visible, summary:focus-visible { outline: 3px solid #e0a526; outline-offset: 3px; }
+  .wrap { max-width: 720px; margin: 0 auto; padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(40px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); }
   .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); }
 
   /* ---------- Login ---------- */
   .login { min-height: 100vh; display: grid; place-items: center; padding: 24px 16px; }
+  .login, .loading { min-height: 100svh; }
   .login .card { width: 100%; max-width: 380px; padding: 28px 24px 24px; text-align: center; }
   .crest { font-size: 44px; line-height: 1; }
   .login h1 { margin: 10px 0 4px; font-size: 32px; color: var(--forest); }
@@ -62,6 +69,7 @@
     padding: 14px 16px; border-radius: var(--radius); background: var(--accent); color: #fff;
   }
   .brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .brand > div { min-width: 0; }
   .brand .emoji {
     flex: none; width: 52px; height: 52px; display: grid; place-items: center;
     font-size: 30px; background: rgba(255, 255, 255, .18); border-radius: 14px;
@@ -86,6 +94,12 @@
   .previous { margin: 14px 0 0; padding-top: 12px; border-top: 1px dashed var(--line); color: var(--muted); font-size: 14px; }
   .previous b { color: var(--ink); }
   .lieu.unlocked { border: 2px solid var(--accent); }
+  .location-image { display: block; width: 100%; margin: 12px 0; padding: 0; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: #fff; }
+  .location-image img { display: block; width: 100%; height: auto; max-height: 55svh; object-fit: contain; }
+  .location-image span { display: block; padding: 10px 12px; font-size: 14px; font-weight: 800; color: var(--accent); }
+  .image-error { display: block; padding: 16px; color: var(--muted); font-size: 15px; }
+  .previous summary { cursor: pointer; min-height: 44px; padding: 10px 0; font-weight: 800; color: var(--ink); }
+  .previous-location { padding-top: 10px; }
 
   /* ---------- Stats & lists ---------- */
   .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 14px; }
@@ -116,7 +130,9 @@
   .item.no .mark { background: var(--no); color: #fff; }
   .item.ok .label { color: var(--muted); }
   .item.no .label { color: var(--no); }
-  .item .label { padding-top: 2px; overflow-wrap: anywhere; }
+  .item .label { min-width: 0; padding-top: 2px; overflow-wrap: anywhere; }
+  .label { white-space: pre-line; }
+  .challenge-link { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; overflow-wrap: anywhere; }
   .empty { color: var(--muted); font-style: italic; margin: 0; padding: 4px 2px; }
   .foot { margin-top: 26px; text-align: center; color: var(--muted); font-size: 13px; }
   .foot .offline { color: var(--no); font-weight: 700; }
@@ -138,7 +154,7 @@
   .lieux-admin h3 { margin: 0 0 8px; font-size: 14px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
   .lieu-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 0; border-top: 1px dashed var(--line); }
   .lieu-row:first-of-type { border-top: 0; }
-  .lieu-row .who { min-width: 0; overflow-wrap: anywhere; }
+  .lieu-row .who { flex: 1; min-width: 0; overflow-wrap: anywhere; }
   .lieu-row .who small { display: block; color: var(--muted); font-weight: 700; font-size: 12px; }
   .badge { flex: none; font-size: 12px; font-weight: 800; padding: 3px 10px; border-radius: 99px; }
   .badge.on { background: var(--ok-bg); color: var(--ok); }
@@ -160,6 +176,12 @@
     background: rgba(20, 30, 20, .72); animation: fade .3s ease;
   }
   .reveal .card { width: 100%; max-width: 420px; padding: 30px 22px 22px; text-align: center; animation: pop .5s cubic-bezier(.2, 1.4, .4, 1); border: 3px solid var(--accent); }
+  body.modal-open { overflow: hidden; }
+  .reveal { overflow-y: auto; overscroll-behavior: contain; }
+  .reveal .card { max-height: calc(100svh - 32px); overflow-y: auto; }
+  .reveal .location-image img { max-height: 40svh; }
+  .image-viewer .card { max-width: 960px; padding: 12px; }
+  .image-viewer img { display: block; width: 100%; max-height: 75svh; object-fit: contain; margin: 0 auto 12px; }
   .reveal .pin { font-size: 56px; line-height: 1; animation: bounce 1.2s ease infinite; }
   .reveal .kicker { margin: 12px 0 0; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; color: var(--accent); }
   .reveal h2 { margin: 8px 0 22px; font-size: clamp(30px, 9vw, 44px); overflow-wrap: anywhere; }
@@ -168,16 +190,39 @@
     max-width: calc(100% - 32px); padding: 12px 16px; border-radius: 12px;
     background: var(--ink); color: #fff; font-weight: 700; box-shadow: 0 6px 24px rgba(0, 0, 0, .25);
   }
-  .loading { min-height: 100vh; display: grid; place-items: center; color: var(--muted); font-weight: 700; }
+  .loading { min-height: 100vh; min-height: 100svh; display: grid; place-items: center; color: var(--muted); font-weight: 700; }
   @keyframes fade { from { opacity: 0; } }
   @keyframes pop { from { transform: scale(.6); opacity: 0; } }
   @keyframes bounce { 50% { transform: translateY(-8px); } }
+  @media (max-width: 520px) {
+    .top { flex-wrap: wrap; padding: 12px; }
+    .brand { flex: 1 1 160px; gap: 10px; }
+    .brand .emoji { width: 44px; height: 44px; font-size: 26px; }
+    .brand h1 { font-size: 24px; }
+    .top-actions { width: 100%; }
+    .top-actions .ghost { flex: 1; text-align: center; }
+    .ghost { padding: 10px; font-size: 13px; }
+    .lieu { padding: 16px; }
+    .stats { gap: 8px; }
+    .stat { padding: 10px 4px; }
+    .tabs { scroll-snap-type: x proximity; }
+    .tab { min-height: 48px; scroll-snap-align: start; }
+    .admin-item { align-items: stretch; padding: 12px; }
+    .admin-item .label { flex-basis: 100%; }
+    .seg { display: flex; width: 100%; }
+    .seg button { flex: 1; min-width: 0; min-height: 48px; padding: 10px 5px; }
+    .lieu-row { flex-wrap: wrap; align-items: flex-start; }
+    .item { gap: 10px; padding: 12px; }
+    .login { padding: max(20px, env(safe-area-inset-top)) 16px max(20px, env(safe-area-inset-bottom)); }
+    .login .card { padding: 24px 20px 16px; }
+  }
   @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 </style>
 </head>
 <body>
 <div id="app"><div class="loading">Chargement…</div></div>
 <div id="overlay"></div>
+<script src="location-images.js"></script>
 <script>
   const THEMES = {
     requin: { emoji: '🦈', color: '#1f6aa0' },
@@ -248,6 +293,60 @@
   const theme = key => THEMES[key] || ADMIN_THEME;
   const plural = (n, word) => n + ' ' + word + (n > 1 ? 's' : '');
 
+  // Only URLs become markup. All Sheet text and attributes stay HTML-escaped.
+  function challengeText(value) {
+    const text = String(value);
+    const urls = /(?:https?:\/\/|www\.)[^\s<>"']+/gi;
+    let html = '', start = 0;
+    for (const match of text.matchAll(urls)) {
+      let url = match[0].replace(/[.,;:!?]+$/, '');
+      // Keep balanced parentheses in URLs, but leave sentence punctuation outside.
+      while (url.endsWith(')') && (url.match(/\)/g) || []).length > (url.match(/\(/g) || []).length) url = url.slice(0, -1);
+      const href = /^www\./i.test(url) ? 'https://' + url : url;
+      html += esc(text.slice(start, match.index));
+      try {
+        const parsed = new URL(href);
+        if (!['https:', 'http:'].includes(parsed.protocol)) throw new Error('Unsupported URL');
+        html += `<a class="challenge-link" href="${esc(parsed.href)}" target="_blank" rel="noopener noreferrer">${esc(url)}</a>`;
+      } catch (e) { html += esc(url); }
+      start = match.index + url.length;
+    }
+    return html + esc(text.slice(start));
+  }
+
+  function locationImageUrl(location) {
+    const images = window.LOCATION_IMAGES || {};
+    const name = String(location.name).trim();
+    const value = Object.prototype.hasOwnProperty.call(images, name) ? images[name] : '';
+    if (typeof value !== 'string' || !value.trim()) return '';
+    const source = value.trim();
+    if (/^https:\/\//i.test(source)) {
+      try { return new URL(source).href; } catch (e) { return ''; }
+    }
+    // Repository images live under assets/, relative to this GitHub Pages site.
+    if (/^(?:\.\/)?assets\//.test(source) && !source.split('/').includes('..') && !/[\\?#]/.test(source)) return source;
+    return '';
+  }
+
+  function locationContent(location) {
+    const src = locationImageUrl(location);
+    if (!src) return `<div class="name display">${esc(location.name)}</div>`;
+    return `<button class="location-image" data-action="view-image" data-src="${esc(src)}" aria-label="Agrandir l’image du lieu">
+      <img src="${esc(src)}" alt="Indice du lieu à rejoindre" loading="lazy" decoding="async">
+      <span>Agrandir l’image ↗</span></button>`;
+  }
+
+  function closeOverlay() {
+    overlay.innerHTML = '';
+    document.body.classList.remove('modal-open');
+  }
+
+  function openOverlay(html) {
+    overlay.innerHTML = html;
+    document.body.classList.add('modal-open');
+    overlay.querySelector('button').focus();
+  }
+
   // Counts, unlocked locations and progress for one patrol, including admin edits still in flight.
   function summarize(p) {
     const challenges = p.challenges.map(c => {
@@ -276,7 +375,10 @@
   function render() {
     if (!state.token) return renderLogin();
     if (!state.data) { app.innerHTML = '<div class="loading">Chargement…</div>'; return; }
+    const previousLocationsOpen = !!app.querySelector('.previous[open]');
     if (state.data.role === 'admin') renderAdmin(); else renderPatrol();
+    const previousLocations = app.querySelector('.previous');
+    if (previousLocations) previousLocations.open = previousLocationsOpen;
   }
 
   function renderLogin(message) {
@@ -297,7 +399,8 @@
           <p class="error" id="login-error" role="alert">${message ? esc(message) : ''}</p>
         </form>
       </main>`;
-    document.getElementById('user').focus();
+    // Avoid opening the phone keyboard before the player chooses a field.
+    if (window.matchMedia('(pointer: fine)').matches) document.getElementById('user').focus();
   }
 
   function locationCard(s) {
@@ -312,9 +415,9 @@
     return `
       <section class="card lieu ${latest ? 'unlocked' : 'locked'}" aria-live="polite">
         <div class="kicker">${latest ? '📍 Votre lieu' : '🔒 Lieu secret'}</div>
-        <div class="name display">${latest ? esc(latest.name) : '? ? ?'}</div>
+        ${latest ? locationContent(latest) : '<div class="name display">? ? ?</div>'}
         ${progress}
-        ${earlier.length ? `<p class="previous">Lieux précédents : ${earlier.map(l => `<b>${esc(l.name)}</b>`).join(' · ')}</p>` : ''}
+        ${earlier.length ? `<details class="previous"><summary>Lieux précédents (${earlier.length})</summary>${earlier.map(l => `<div class="previous-location">${locationContent(l)}</div>`).join('')}</details>` : ''}
       </section>`;
   }
 
@@ -323,7 +426,7 @@
       <section class="group ${cls}">
         <h2>${title} <span class="count">${items.length}</span></h2>
         ${items.length
-          ? `<ul class="list">${items.map(c => `<li class="item ${cls}"><span class="mark" aria-hidden="true">${mark}</span><span class="label">${esc(c.name)}</span></li>`).join('')}</ul>`
+          ? `<ul class="list">${items.map(c => `<li class="item ${cls}"><span class="mark" aria-hidden="true">${mark}</span><span class="label">${challengeText(c.name)}</span></li>`).join('')}</ul>`
           : `<p class="empty">${emptyText}</p>`}
       </section>`;
   }
@@ -361,6 +464,8 @@
   }
 
   function renderAdmin() {
+    const previousTabs = app.querySelector('.tabs');
+    const tabScroll = previousTabs ? previousTabs.scrollLeft : 0;
     const patrols = state.data.patrols;
     if (!patrols.some(p => p.key === state.tab)) state.tab = patrols[0].key;
     const s = summarize(patrols.find(p => p.key === state.tab));
@@ -377,7 +482,7 @@
             <button class="ghost" data-action="logout">Déconnexion</button>
           </div>
         </header>
-        <nav class="tabs" role="tablist">
+        <nav class="tabs" role="tablist" aria-label="Patrouilles">
           ${patrols.map(p => {
             const ps = summarize(p);
             return `<button class="tab" role="tab" data-action="tab" data-key="${p.key}" data-focus-key="tab:${p.key}"
@@ -396,7 +501,7 @@
             <h3>Lieux affichés à la patrouille</h3>
             ${s.p.locations.length ? s.p.locations.map(l => {
               const on = l.threshold <= s.accepted;
-              return `<div class="lieu-row"><div class="who"><small>${plural(l.threshold, 'défi')} validé${l.threshold > 1 ? 's' : ''}</small>${esc(l.name)}</div>
+              return `<div class="lieu-row"><div class="who"><small>${plural(l.threshold, 'défi')} validé${l.threshold > 1 ? 's' : ''}</small>${locationContent(l)}</div>
                       <span class="badge ${on ? 'on' : 'off'}">${on ? 'Affiché' : 'Verrouillé'}</span></div>`;
             }).join('') : '<p class="empty">Aucun lieu pour cette patrouille dans l’onglet Lieux.</p>'}
           </section>
@@ -404,7 +509,7 @@
             <h2>Défis</h2>
             ${s.challenges.length ? `<ul class="list">${s.challenges.map(c => `
               <li class="admin-item${c.saving ? ' saving' : ''}">
-                <span class="label">${esc(c.name)}</span>
+                <span class="label">${challengeText(c.name)}</span>
                 <span class="seg" role="group" aria-label="Statut de ${esc(c.name)}">
                   ${segButton(s.p.key, c, 'pending', 'todo', 'À faire')}
                   ${segButton(s.p.key, c, 'accepted', 'ok', '✓ Valider')}
@@ -415,6 +520,7 @@
         </div>
         ${footer()}
       </div>`;
+    app.querySelector('.tabs').scrollLeft = tabScroll;
     if (focused) {
       const el = app.querySelector(`[data-focus-key="${focused}"]`);
       if (el) el.focus();
@@ -434,16 +540,16 @@
     if (!fresh.length || overlay.innerHTML) return;
     store.set(seenKey, seen.concat(fresh.map(l => l.threshold + '|' + l.name)));
     const latest = fresh[fresh.length - 1];
-    overlay.innerHTML = `
+    openOverlay(`
       <div class="reveal" role="dialog" aria-modal="true" aria-labelledby="reveal-name">
         <div class="card">
           <div class="pin">📍</div>
           <p class="kicker">Nouveau lieu débloqué !</p>
-          <h2 id="reveal-name">${esc(latest.name)}</h2>
+          <h2 id="reveal-name">Votre prochain lieu</h2>
+          ${locationContent(latest)}
           <button class="btn" data-action="close-reveal" style="background:var(--accent)">C’est parti !</button>
         </div>
-      </div>`;
-    overlay.querySelector('button').focus();
+      </div>`);
     try { navigator.vibrate && navigator.vibrate([200, 100, 200]); } catch (e) {}
   }
 
@@ -539,7 +645,7 @@
     state.data = null;
     state.pending = {};
     store.remove('token');
-    overlay.innerHTML = '';
+    closeOverlay();
     document.documentElement.style.removeProperty('--accent');
     renderLogin(typeof message === 'string' ? message : '');
   }
@@ -556,7 +662,12 @@
     const action = el.dataset.action;
     if (action === 'logout') logout();
     else if (action === 'retry') loadInitial();
-    else if (action === 'close-reveal') overlay.innerHTML = '';
+    else if (action === 'close-reveal') closeOverlay();
+    else if (action === 'view-image') {
+      openOverlay(`<div class="reveal image-viewer" role="dialog" aria-modal="true" aria-label="Image du lieu">
+        <div class="card"><img src="${esc(el.dataset.src)}" alt="Indice du lieu à rejoindre">
+        <button class="btn" data-action="close-reveal">Fermer l’image</button></div></div>`);
+    }
     else if (action === 'tab') { state.tab = el.dataset.key; store.set('tab', state.tab); render(); }
     else if (action === 'status' && el.getAttribute('aria-pressed') !== 'true') {
       setStatus(el.dataset.patrol, Number(el.dataset.row), el.dataset.status);
@@ -564,8 +675,22 @@
   });
 
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && overlay.innerHTML) overlay.innerHTML = '';
+    if (e.key === 'Escape' && overlay.innerHTML) closeOverlay();
+    if (e.key === 'Tab' && overlay.innerHTML) {
+      const controls = [...overlay.querySelectorAll('button, a[href]')];
+      const first = controls[0], last = controls[controls.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
   });
+
+  document.addEventListener('error', e => {
+    if (!(e.target instanceof HTMLImageElement)) return;
+    const message = document.createElement('span');
+    message.className = 'image-error';
+    message.textContent = 'Image indisponible. Vérifiez votre connexion et réessayez.';
+    e.target.replaceWith(message);
+  }, true);
 
   document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
 
