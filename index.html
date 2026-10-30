@@ -94,12 +94,14 @@
   .previous { margin: 14px 0 0; padding-top: 12px; border-top: 1px dashed var(--line); color: var(--muted); font-size: 14px; }
   .previous b { color: var(--ink); }
   .lieu.unlocked { border: 2px solid var(--accent); }
-  .location-image { display: block; width: 100%; margin: 12px 0; padding: 0; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: #fff; }
-  .location-image img { display: block; width: 100%; height: auto; max-height: 55svh; object-fit: contain; }
-  .location-image span { display: block; padding: 10px 12px; font-size: 14px; font-weight: 800; color: var(--accent); }
+  .location-image { display: block; width: 100%; margin: 0; border-radius: 12px; overflow: hidden; background: #fff; }
+  .location-image img { display: block; width: 100%; aspect-ratio: 1; max-height: 55svh; object-fit: contain; }
   .image-error { display: block; padding: 16px; color: var(--muted); font-size: 15px; }
   .previous summary { cursor: pointer; min-height: 44px; padding: 10px 0; font-weight: 800; color: var(--ink); }
   .previous-location { padding-top: 10px; }
+  .progress-count { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 12px 0 0; color: var(--muted); font-weight: 800; font-variant-numeric: tabular-nums; }
+  .connection { color: #ffd781; margin-left: 6px; }
+  [hidden] { display: none !important; }
 
   /* ---------- Stats & lists ---------- */
   .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 14px; }
@@ -170,30 +172,13 @@
   .seg button[aria-pressed="true"].no { background: var(--no); color: #fff; }
   .seg button:focus-visible, .tab:focus-visible, .btn:focus-visible, .ghost:focus-visible { outline: 3px solid #e0a526; outline-offset: 2px; }
 
-  /* ---------- Reveal overlay & toast ---------- */
-  .reveal {
-    position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; padding: 16px;
-    background: rgba(20, 30, 20, .72); animation: fade .3s ease;
-  }
-  .reveal .card { width: 100%; max-width: 420px; padding: 30px 22px 22px; text-align: center; animation: pop .5s cubic-bezier(.2, 1.4, .4, 1); border: 3px solid var(--accent); }
-  body.modal-open { overflow: hidden; }
-  .reveal { overflow-y: auto; overscroll-behavior: contain; }
-  .reveal .card { max-height: calc(100svh - 32px); overflow-y: auto; }
-  .reveal .location-image img { max-height: 40svh; }
-  .image-viewer .card { max-width: 960px; padding: 12px; }
-  .image-viewer img { display: block; width: 100%; max-height: 75svh; object-fit: contain; margin: 0 auto 12px; }
-  .reveal .pin { font-size: 56px; line-height: 1; animation: bounce 1.2s ease infinite; }
-  .reveal .kicker { margin: 12px 0 0; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; color: var(--accent); }
-  .reveal h2 { margin: 8px 0 22px; font-size: clamp(30px, 9vw, 44px); overflow-wrap: anywhere; }
+  /* ---------- Errors ---------- */
   .toast {
     position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 20;
     max-width: calc(100% - 32px); padding: 12px 16px; border-radius: 12px;
     background: var(--ink); color: #fff; font-weight: 700; box-shadow: 0 6px 24px rgba(0, 0, 0, .25);
   }
   .loading { min-height: 100vh; min-height: 100svh; display: grid; place-items: center; color: var(--muted); font-weight: 700; }
-  @keyframes fade { from { opacity: 0; } }
-  @keyframes pop { from { transform: scale(.6); opacity: 0; } }
-  @keyframes bounce { 50% { transform: translateY(-8px); } }
   @media (max-width: 520px) {
     .top { flex-wrap: wrap; padding: 12px; }
     .brand { flex: 1 1 160px; gap: 10px; }
@@ -221,7 +206,6 @@
 </head>
 <body>
 <div id="app"><div class="loading">Chargement…</div></div>
-<div id="overlay"></div>
 <script>
   const THEMES = {
     requin: { emoji: '🦈', color: '#1f6aa0' },
@@ -235,7 +219,6 @@
   const SESSION_EXPIRED = /reconnectez-vous/i;
 
   const app = document.getElementById('app');
-  const overlay = document.getElementById('overlay');
 
   // localStorage can be unavailable inside the Apps Script iframe; the site still works without it.
   const store = {
@@ -257,7 +240,6 @@
     pending: {},     // "patrolKey:row" -> { status, seq } for admin writes not yet confirmed
     writeSeq: 0,
     refreshing: false,
-    updatedAt: null,
     offline: false,
     timer: null,
   };
@@ -280,11 +262,15 @@
 
   async function callApi(fn, args) {
     let res;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 25000);
     try {
       // text/plain keeps this a "simple" request, which Apps Script accepts from other sites.
-      res = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ fn, args }) });
+      res = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ fn, args }), signal: controller.signal });
     } catch (e) {
       throw new Error('Impossible de joindre le serveur. Vérifiez la connexion internet, puis réessayez.');
+    } finally {
+      clearTimeout(timeout);
     }
     let body;
     try { body = await res.json(); } catch (e) {
@@ -296,7 +282,6 @@
 
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const theme = key => THEMES[key] || ADMIN_THEME;
-  const plural = (n, word) => n + ' ' + word + (n > 1 ? 's' : '');
 
   // Only URLs become markup. All Sheet text and attributes stay HTML-escaped.
   function challengeText(value) {
@@ -329,21 +314,77 @@
     const src = locationImageUrl(location);
     const label = state.data && state.data.role === 'admin'
       ? `<div class="name display">${esc(location.name || '')}</div>` : '';
-    if (!src) return `${label}<p class="image-error">L’image de ce lieu n’est pas encore disponible. Contactez la maîtrise.</p>`;
-    return `${label}<button class="location-image" data-action="view-image" data-src="${esc(src)}" aria-label="Agrandir l’image du lieu">
-      <img src="${esc(src)}" alt="Indice du lieu à rejoindre" loading="lazy" decoding="async">
-      <span>Agrandir l’image ↗</span></button>`;
+    if (!src) return `${label}<p class="image-error">Image indisponible</p>`;
+    return `${label}<div class="location-image"><img src="${esc(src)}" alt="Indice" decoding="async"></div>`;
   }
 
-  function closeOverlay() {
-    overlay.innerHTML = '';
-    document.body.classList.remove('modal-open');
+  // Keep existing rows, images, focus and open details during background updates.
+  function nodeKey(node) {
+    return node.nodeType === Node.ELEMENT_NODE ? node.getAttribute('data-ui-key') : null;
   }
 
-  function openOverlay(html) {
-    overlay.innerHTML = html;
-    document.body.classList.add('modal-open');
-    overlay.querySelector('button').focus();
+  function patchNode(current, next) {
+    if (current.nodeType !== Node.ELEMENT_NODE) {
+      if (current.nodeValue !== next.nodeValue) current.nodeValue = next.nodeValue;
+      return;
+    }
+    for (const attr of [...current.attributes]) {
+      if (current.tagName === 'DETAILS' && attr.name === 'open') continue;
+      if (!next.hasAttribute(attr.name)) current.removeAttribute(attr.name);
+    }
+    for (const attr of next.attributes) {
+      if (current.getAttribute(attr.name) !== attr.value) current.setAttribute(attr.name, attr.value);
+    }
+    patchChildren(current, next);
+  }
+
+  function patchChildren(current, next) {
+    const keyed = new Map([...current.childNodes].filter(nodeKey).map(node => [nodeKey(node), node]));
+    let cursor = current.firstChild;
+    for (const child of [...next.childNodes]) {
+      const key = nodeKey(child);
+      let existing = key ? keyed.get(key) : cursor;
+      if (!existing || existing.nodeType !== child.nodeType || existing.nodeName !== child.nodeName || nodeKey(existing) !== key) {
+        existing = child.cloneNode(true);
+      }
+      if (existing !== cursor) current.insertBefore(existing, cursor);
+      patchNode(existing, child);
+      cursor = existing.nextSibling;
+    }
+    while (cursor) {
+      const nextSibling = cursor.nextSibling;
+      current.removeChild(cursor);
+      cursor = nextSibling;
+    }
+  }
+
+  let renderedMarkup = null;
+  function replaceApp(html) {
+    renderedMarkup = null;
+    app.innerHTML = html;
+  }
+
+  function updateApp(html) {
+    if (html === renderedMarkup) { syncConnection(); return; }
+    const anchor = window.scrollY > 0 && [...app.querySelectorAll('[data-challenge-row]')].find(el => {
+      const rect = el.getBoundingClientRect();
+      return rect.bottom > 0 && rect.top < window.innerHeight;
+    });
+    const anchorTop = anchor && anchor.getBoundingClientRect().top;
+    const template = document.createElement('template');
+    template.innerHTML = html;
+    patchChildren(app, template.content);
+    renderedMarkup = html;
+    if (anchor && anchor.isConnected) {
+      const delta = anchor.getBoundingClientRect().top - anchorTop;
+      if (Math.abs(delta) > 1) window.scrollBy({ top: delta, behavior: 'instant' });
+    }
+    syncConnection();
+  }
+
+  function syncConnection() {
+    const indicator = app.querySelector('[data-offline]');
+    if (indicator && indicator.hidden !== !state.offline) indicator.hidden = !state.offline;
   }
 
   // Counts, unlocked locations and progress for one patrol, including admin edits still in flight.
@@ -373,21 +414,17 @@
 
   function render() {
     if (!state.token) return renderLogin();
-    if (!state.data) { app.innerHTML = '<div class="loading">Chargement…</div>'; return; }
-    const previousLocationsOpen = !!app.querySelector('.previous[open]');
+    if (!state.data) { replaceApp('<div class="loading">Chargement…</div>'); return; }
     if (state.data.role === 'admin') renderAdmin(); else renderPatrol();
-    const previousLocations = app.querySelector('.previous');
-    if (previousLocations) previousLocations.open = previousLocationsOpen;
   }
 
   function renderLogin(message) {
     stopRefresh();
-    app.innerHTML = `
+    replaceApp(`
       <main class="login">
         <form class="card" id="login-form" autocomplete="on">
           <div class="crest">⚜️</div>
           <h1>Grand Jeu Fanar</h1>
-          <p>Connecte-toi avec le compte de ta patrouille.</p>
           <label class="field">Identifiant
             <input id="user" name="username" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" required>
           </label>
@@ -397,7 +434,7 @@
           <button class="btn" id="login-btn" type="submit">Se connecter</button>
           <p class="error" id="login-error" role="alert">${message ? esc(message) : ''}</p>
         </form>
-      </main>`;
+      </main>`);
     // Avoid opening the phone keyboard before the player chooses a field.
     if (window.matchMedia('(pointer: fine)').matches) document.getElementById('user').focus();
   }
@@ -405,91 +442,68 @@
   function locationCard(s) {
     if (!s.unlocked.length && !s.next) return '';
     const latest = s.unlocked[s.unlocked.length - 1];
-    const remaining = s.next ? s.next - s.accepted : 0;
-    const progress = s.next
-      ? `<div class="bar"><span style="width:${Math.round(s.progress * 100)}%"></span></div>
-         <p class="hint">Encore <b>${plural(remaining, 'défi')} validé${remaining > 1 ? 's' : ''}</b> pour ${latest ? 'le prochain lieu' : 'découvrir le lieu'}.</p>`
-      : `<p class="hint">Tous les lieux sont débloqués 🎉</p>`;
     const earlier = s.unlocked.slice(0, -1).reverse();
     return `
-      <section class="card lieu ${latest ? 'unlocked' : 'locked'}" aria-live="polite">
-        <div class="kicker">${latest ? '📍 Votre lieu' : '🔒 Lieu secret'}</div>
-        ${latest ? locationContent(latest) : '<div class="name display">? ? ?</div>'}
-        ${progress}
-        ${earlier.length ? `<details class="previous"><summary>Lieux précédents (${earlier.length})</summary>${earlier.map(l => `<div class="previous-location">${locationContent(l)}</div>`).join('')}</details>` : ''}
+      <section class="card lieu ${latest ? 'unlocked' : 'locked'}" data-ui-key="location">
+        ${latest ? `<div data-ui-key="latest-image">${locationContent(latest)}</div>` : ''}
+        <div class="progress-count" data-ui-key="progress" aria-label="Défis validés${s.next ? ' / prochain seuil' : ''}">
+          <span aria-hidden="true">${latest ? '✓' : '🔒'}</span> ${s.accepted}${s.next ? ' / ' + s.next : ''}
+        </div>
+        ${earlier.length ? `<details class="previous" data-ui-key="previous"><summary aria-label="Images précédentes">◷ ${earlier.length}</summary>${earlier.map(l => `<div class="previous-location" data-ui-key="location:${l.threshold}">${locationContent(l)}</div>`).join('')}</details>` : ''}
       </section>`;
-  }
-
-  function group(cls, title, items, mark, emptyText) {
-    return `
-      <section class="group ${cls}">
-        <h2>${title} <span class="count">${items.length}</span></h2>
-        ${items.length
-          ? `<ul class="list">${items.map(c => `<li class="item ${cls}"><span class="mark" aria-hidden="true">${mark}</span><span class="label">${challengeText(c.name)}</span></li>`).join('')}</ul>`
-          : `<p class="empty">${emptyText}</p>`}
-      </section>`;
-  }
-
-  function footer() {
-    const time = state.updatedAt ? state.updatedAt.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '';
-    return `<p class="foot">${state.offline
-      ? '<span class="offline">Connexion perdue — nouvel essai automatique…</span>'
-      : `Mise à jour automatique · ${time}`}</p>`;
   }
 
   function renderPatrol() {
     const s = summarize(state.data.patrol);
     const t = theme(s.p.key);
     document.documentElement.style.setProperty('--accent', t.color);
-    app.innerHTML = `
-      <div class="wrap">
-        <header class="top">
+    updateApp(`
+      <div class="wrap" data-ui-key="patrol:${s.p.key}">
+        <header class="top" data-ui-key="header">
           <div class="brand"><span class="emoji">${t.emoji}</span>
-            <div><small>Patrouille</small><h1>${esc(s.p.name)}</h1></div></div>
+            <div><h1>${esc(s.p.name)}</h1></div>
+            <span class="connection" data-offline hidden role="status" aria-label="Hors ligne" title="Hors ligne">●</span></div>
           <button class="ghost" data-action="logout">Déconnexion</button>
         </header>
         ${locationCard(s)}
-        <div class="stats">
-          <div class="stat todo"><b>${s.todo.length}</b><span>À faire</span></div>
-          <div class="stat no"><b>${s.rejected.length}</b><span>Refusés</span></div>
-          <div class="stat ok"><b>${s.done.length}</b><span>Validés</span></div>
-        </div>
-        ${group('todo', 'À faire', s.todo, '', 'Plus aucun défi à faire !')}
-        ${group('no', 'Refusés', s.rejected, '✕', 'Aucun défi refusé.')}
-        ${group('ok', 'Validés', s.done, '✓', 'Aucun défi validé pour l’instant.')}
-        ${footer()}
-      </div>`;
-    revealNewLocation(s);
+        <section class="group" data-ui-key="challenges">
+          <ul class="list">${s.challenges.map(c => {
+            const cls = c.status === 'accepted' ? 'ok' : c.status === 'rejected' ? 'no' : 'todo';
+            const mark = c.status === 'accepted' ? '✓' : c.status === 'rejected' ? '✕' : '';
+            return `<li class="item ${cls}" data-ui-key="challenge:${c.row}" data-challenge-row="${c.row}">
+              <span class="mark" role="img" aria-label="${c.status === 'accepted' ? 'Validé' : c.status === 'rejected' ? 'Refusé' : 'À faire'}">${mark}</span>
+              <span class="label">${challengeText(c.name)}</span></li>`;
+          }).join('')}</ul>
+        </section>
+      </div>`);
   }
 
   function renderAdmin() {
-    const previousTabs = app.querySelector('.tabs');
-    const tabScroll = previousTabs ? previousTabs.scrollLeft : 0;
     const patrols = state.data.patrols;
     if (!patrols.some(p => p.key === state.tab)) state.tab = patrols[0].key;
     const s = summarize(patrols.find(p => p.key === state.tab));
     const t = theme(s.p.key);
-    const focused = document.activeElement && document.activeElement.dataset.focusKey;
     document.documentElement.style.setProperty('--accent', ADMIN_THEME.color);
-    app.innerHTML = `
-      <div class="wrap">
-        <header class="top">
+    updateApp(`
+      <div class="wrap" data-ui-key="admin">
+        <header class="top" data-ui-key="header">
           <div class="brand"><span class="emoji">${ADMIN_THEME.emoji}</span>
-            <div><small>Admin</small><h1>${esc(state.data.user)}</h1></div></div>
+            <div><h1>${esc(state.data.user)}</h1></div>
+            <span class="connection" data-offline hidden role="status" aria-label="Hors ligne" title="Hors ligne">●</span></div>
           <div class="top-actions">
             ${state.data.sheetUrl ? `<a class="ghost" href="${esc(state.data.sheetUrl)}" target="_blank" rel="noopener">Feuille</a>` : ''}
             <button class="ghost" data-action="logout">Déconnexion</button>
           </div>
         </header>
-        <nav class="tabs" role="tablist" aria-label="Patrouilles">
+        <nav class="tabs" role="tablist" aria-label="Patrouilles" data-ui-key="tabs">
           ${patrols.map(p => {
             const ps = summarize(p);
-            return `<button class="tab" role="tab" data-action="tab" data-key="${p.key}" data-focus-key="tab:${p.key}"
+            return `<button class="tab" role="tab" data-action="tab" data-key="${p.key}" data-ui-key="tab:${p.key}"
                       aria-selected="${p.key === state.tab}" style="--tab-color:${theme(p.key).color}">
                       <span>${theme(p.key).emoji}</span>${esc(p.name)} <small>${ps.accepted}/${p.challenges.length}</small></button>`;
           }).join('')}
         </nav>
-        <div style="--accent:${t.color}">
+        <div style="--accent:${t.color}" data-ui-key="panel:${s.p.key}">
           <div class="panel-head"><span class="emoji">${t.emoji}</span><h2>${esc(s.p.name)}</h2></div>
           <div class="stats">
             <div class="stat todo"><b>${s.todo.length}</b><span>À faire</span></div>
@@ -497,59 +511,31 @@
             <div class="stat ok"><b>${s.done.length}</b><span>Validés</span></div>
           </div>
           <section class="card lieux-admin">
-            <h3>Lieux affichés à la patrouille</h3>
             ${s.p.locations.length ? s.p.locations.map(l => {
               const on = l.threshold <= s.accepted;
-              return `<div class="lieu-row"><div class="who"><small>${plural(l.threshold, 'défi')} validé${l.threshold > 1 ? 's' : ''}</small>${locationContent(l)}</div>
-                      <span class="badge ${on ? 'on' : 'off'}">${on ? 'Affiché' : 'Verrouillé'}</span></div>`;
-            }).join('') : '<p class="empty">Aucun lieu pour cette patrouille dans l’onglet Lieux.</p>'}
+              return `<div class="lieu-row" data-ui-key="location:${l.threshold}"><div class="who"><small>✓ ${l.threshold}</small>${locationContent(l)}</div>
+                      <span class="badge ${on ? 'on' : 'off'}" aria-label="${on ? 'Débloqué' : 'Verrouillé'}">${on ? '✓' : '🔒'}</span></div>`;
+            }).join('') : ''}
           </section>
           <section class="group">
             <h2>Défis</h2>
             ${s.challenges.length ? `<ul class="list">${s.challenges.map(c => `
-              <li class="admin-item${c.saving ? ' saving' : ''}">
+              <li class="admin-item${c.saving ? ' saving' : ''}" data-ui-key="challenge:${c.row}" data-challenge-row="${c.row}">
                 <span class="label">${challengeText(c.name)}</span>
                 <span class="seg" role="group" aria-label="Statut de ${esc(c.name)}">
                   ${segButton(s.p.key, c, 'pending', 'todo', 'À faire')}
                   ${segButton(s.p.key, c, 'accepted', 'ok', '✓ Valider')}
                   ${segButton(s.p.key, c, 'rejected', 'no', '✕ Refuser')}
                 </span>
-              </li>`).join('')}</ul>` : '<p class="empty">Aucun défi dans l’onglet Défis.</p>'}
+              </li>`).join('')}</ul>` : ''}
           </section>
         </div>
-        ${footer()}
-      </div>`;
-    app.querySelector('.tabs').scrollLeft = tabScroll;
-    if (focused) {
-      const el = app.querySelector(`[data-focus-key="${focused}"]`);
-      if (el) el.focus();
-    }
+      </div>`);
   }
 
   function segButton(patrolKey, c, status, cls, label) {
     return `<button class="${cls}" data-action="status" data-patrol="${patrolKey}" data-row="${c.row}" data-status="${status}"
-              data-focus-key="${patrolKey}:${c.row}:${status}" aria-pressed="${c.status === status}">${label}</button>`;
-  }
-
-  // Full-screen announcement the first time this device sees a newly unlocked location.
-  function revealNewLocation(s) {
-    const seenKey = 'seen:' + s.p.key;
-    const seen = store.get(seenKey) || [];
-    const fresh = s.unlocked.filter(l => locationImageUrl(l) && !seen.includes(l.threshold));
-    if (!fresh.length || overlay.innerHTML) return;
-    store.set(seenKey, seen.concat(fresh.map(l => l.threshold)));
-    const latest = fresh[fresh.length - 1];
-    openOverlay(`
-      <div class="reveal" role="dialog" aria-modal="true" aria-labelledby="reveal-name">
-        <div class="card">
-          <div class="pin">📍</div>
-          <p class="kicker">Nouveau lieu débloqué !</p>
-          <h2 id="reveal-name">Votre prochain lieu</h2>
-          ${locationContent(latest)}
-          <button class="btn" data-action="close-reveal" style="background:var(--accent)">C’est parti !</button>
-        </div>
-      </div>`);
-    try { navigator.vibrate && navigator.vibrate([200, 100, 200]); } catch (e) {}
+              aria-pressed="${c.status === status}"${c.saving ? ' disabled' : ''}>${label}</button>`;
   }
 
   function toast(message) {
@@ -572,7 +558,6 @@
       throw new Error('Réponse du serveur incompatible avec le mode énigme. Contactez la maîtrise.');
     }
     state.data = data;
-    state.updatedAt = new Date();
     state.offline = false;
     render();
   }
@@ -585,14 +570,16 @@
   async function refresh() {
     if (!state.token || state.refreshing || document.hidden) return;
     state.refreshing = true;
+    const token = state.token;
     const seq = state.writeSeq;
     try {
-      const data = await call('getData', state.token);
+      const data = await call('getData', token);
       // Drop the result if an admin edit started meanwhile: it may predate that edit.
-      if (state.token && seq === state.writeSeq && !Object.keys(state.pending).length) setData(data);
+      if (state.token === token && seq === state.writeSeq && !Object.keys(state.pending).length) setData(data);
     } catch (err) {
+      if (state.token !== token) return;
       if (SESSION_EXPIRED.test(err.message)) logout(err.message);
-      else if (state.data) { state.offline = true; render(); }
+      else if (state.data) { state.offline = true; syncConnection(); }
       else toast(err.message);
     } finally {
       state.refreshing = false;
@@ -610,6 +597,7 @@
   }
 
   async function setStatus(patrolKey, row, status) {
+    const token = state.token;
     const patrol = state.data.patrols.find(p => p.key === patrolKey);
     const challenge = patrol.challenges.find(c => c.row === row);
     const key = patrolKey + ':' + row;
@@ -617,11 +605,24 @@
     state.pending[key] = { status, seq };
     render();
     try {
-      const data = await call('setStatus', state.token, patrolKey, row, challenge.name, status);
-      if (state.pending[key] && state.pending[key].seq === seq) delete state.pending[key];
-      setData(data);
+      const data = await call('setStatus', token, patrolKey, row, challenge.name, status);
+      if (state.token !== token || !state.pending[key] || state.pending[key].seq !== seq) return;
+      delete state.pending[key];
+      if (seq === state.writeSeq) setData(data);
+      else {
+        // A slower, older save must not revert newer edits elsewhere in the list.
+        const savedPatrol = data.patrols.find(p => p.key === patrolKey);
+        const saved = savedPatrol && savedPatrol.challenges.find(c => c.row === row);
+        if (saved) challenge.status = saved.status;
+        // The current data object may have been replaced by a newer response.
+        const currentPatrol = state.data.patrols.find(p => p.key === patrolKey);
+        const current = currentPatrol && currentPatrol.challenges.find(c => c.row === row);
+        if (saved && current) current.status = saved.status;
+        render();
+      }
     } catch (err) {
-      if (state.pending[key] && state.pending[key].seq === seq) delete state.pending[key];
+      if (state.token !== token || !state.pending[key] || state.pending[key].seq !== seq) return;
+      delete state.pending[key];
       render();
       handleError(err);
     }
@@ -651,7 +652,6 @@
     state.data = null;
     state.pending = {};
     store.remove('token');
-    closeOverlay();
     document.documentElement.style.removeProperty('--accent');
     renderLogin(typeof message === 'string' ? message : '');
   }
@@ -668,25 +668,9 @@
     const action = el.dataset.action;
     if (action === 'logout') logout();
     else if (action === 'retry') loadInitial();
-    else if (action === 'close-reveal') closeOverlay();
-    else if (action === 'view-image') {
-      openOverlay(`<div class="reveal image-viewer" role="dialog" aria-modal="true" aria-label="Image du lieu">
-        <div class="card"><img src="${esc(el.dataset.src)}" alt="Indice du lieu à rejoindre">
-        <button class="btn" data-action="close-reveal">Fermer l’image</button></div></div>`);
-    }
     else if (action === 'tab') { state.tab = el.dataset.key; store.set('tab', state.tab); render(); }
     else if (action === 'status' && el.getAttribute('aria-pressed') !== 'true') {
       setStatus(el.dataset.patrol, Number(el.dataset.row), el.dataset.status);
-    }
-  });
-
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && overlay.innerHTML) closeOverlay();
-    if (e.key === 'Tab' && overlay.innerHTML) {
-      const controls = [...overlay.querySelectorAll('button, a[href]')];
-      const first = controls[0], last = controls[controls.length - 1];
-      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
-      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
     }
   });
 
@@ -694,26 +678,30 @@
     if (!(e.target instanceof HTMLImageElement)) return;
     const message = document.createElement('span');
     message.className = 'image-error';
-    message.textContent = 'Image indisponible. Vérifiez votre connexion et réessayez.';
+    message.textContent = 'Image indisponible';
     e.target.replaceWith(message);
   }, true);
 
   document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
 
   async function loadInitial() {
-    app.innerHTML = '<div class="loading">Chargement…</div>';
+    replaceApp('<div class="loading">Chargement…</div>');
+    const token = state.token;
     try {
-      setData(await call('getData', state.token));
+      const data = await call('getData', token);
+      if (state.token !== token) return;
+      setData(data);
       startRefresh();
     } catch (err) {
+      if (state.token !== token) return;
       if (SESSION_EXPIRED.test(err.message)) return logout(err.message);
-      app.innerHTML = `
+      replaceApp(`
         <main class="login"><div class="card">
           <div class="crest">⚠️</div>
           <p class="error">${esc(err.message)}</p>
           <p></p>
           <button class="btn" data-action="retry">Réessayer</button>
-        </div></main>`;
+        </div></main>`);
     }
   }
 

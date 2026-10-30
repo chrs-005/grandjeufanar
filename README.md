@@ -13,6 +13,12 @@ the private image file described below; the site refuses an older backend.
   in the Défis cells; links attached only to words are not returned by the current backend.
 - The site includes a phone viewport, touch controls, wrapping admin controls and
   scrollable patrol tabs.
+- Patrol challenges stay in Sheet order; validation changes the check mark in
+  place. Background polling preserves existing rows, pictures, focus and scroll
+  position. Unchanged data causes no page redraw, and connection retries keep the
+  current screen visible.
+- Patrol pages show the pictures, a compact progress count and the challenge
+  list. There are no image enlargement controls, reveal popups or refresh footer.
 - Locations appear as image riddles. Only admin responses include their names.
   Patrol responses contain image bytes only after the threshold is met. Pictures
   have generic alternative text and no descriptive filenames or image URLs.
